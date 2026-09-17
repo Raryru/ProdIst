@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* -------------------------------------------------------------
+   ДИЗАЙН-ТОКЕНЫ СИСТЕМЫ (DARK & LIGHT PALETTES)
+   ------------------------------------------------------------- */
+:root,
+html.dark {
+  --bg-base: #060913;
+  --surface-card: rgba(17, 24, 39, 0.85);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --input-bg: rgba(6, 9, 19, 0.6);
+  --text-main: #F3F4F6;
+  --text-muted: #9CA3AF;
+  --accent-glow: #6366F1;
+  --timer-track: rgba(255, 255, 255, 0.06);
+}
+
+html.light {
+  --bg-base: #F1F5F9;
+  --surface-card: #FFFFFF;
+  --border-subtle: #CBD5E1;
+  --input-bg: #F8FAFC;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --accent-glow: #4F46E5;
+  --timer-track: #E2E8F0;
+}
+
+@layer base {
+  *, ::before, ::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Стеклянные карточки и поля */
+.glass-panel {
+  background: var(--surface-card);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+}
+
+.glass-input {
+  background: var(--input-bg);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+}
+
+.glass-input:focus {
+  border-color: var(--accent-glow);
+  outline: none;
+}
+
+/* Тонкий аккуратный скроллбар */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 9999px;
+}

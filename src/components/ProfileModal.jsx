@@ -1,0 +1,262 @@
+import React, { useState, useEffect } from 'react'
+import { useAuthStore } from '../store/useAuthStore'
+import { useTaskStore } from '../store/useTaskStore'
+import { 
+  X, Award, Flame, Clock, CheckCircle2, Shield, User, Check
+} from 'lucide-react'
+
+const AVATAR_PRESETS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+]
+
+export default function ProfileModal({ isOpen, onClose }) {
+  const { profile, updateProfile } = useAuthStore()
+  const { tasks } = useTaskStore()
+
+  const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState(AVATAR_PRESETS[0])
+  const [isSaving, setIsSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    if (profile) {
+      setUsername(profile.username || '')
+      setFullName(profile.full_name || '')
+      setAvatarUrl(profile.avatar_url || AVATAR_PRESETS[0])
+    }
+  }, [profile, isOpen])
+
+  if (!isOpen) return null
+
+  const totalFocusSeconds = tasks.reduce((sum, t) => sum + (t.time_spent || 0), 0)
+  const totalFocusHours = (totalFocusSeconds / 3600).toFixed(1)
+  const completedTasksCount = tasks.filter((t) => t.is_completed).length
+
+  const currentLvlXP = (profile?.xp || 0) % 200
+  const lvlProgressPercent = Math.min(100, Math.round((currentLvlXP / 200) * 100))
+
+  const achievements = [
+    {
+      title: 'Первый Фокус',
+      desc: 'Завершить 1 сессию Pomodoro',
+      unlocked: totalFocusSeconds >= 1500,
+      icon: '🎯'
+    },
+    {
+      title: 'В Огне',
+      desc: 'Стрик активности 3+ дня',
+      unlocked: (profile?.streak_count || 0) >= 3,
+      icon: '🔥'
+    },
+    {
+      title: 'Марафонец',
+      desc: 'Достигнуть 3-го уровня',
+      unlocked: (profile?.level || 1) >= 3,
+      icon: '⚡'
+    },
+    {
+      title: 'Продуктивный Мастер',
+      desc: 'Закрыть 5 выполненных задач',
+      unlocked: completedTasksCount >= 5,
+      icon: '🏆'
+    },
+  ]
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setMsg('')
+
+    try {
+      const res = await updateProfile({
+        username: username.trim(),
+        full_name: fullName.trim(),
+        avatar_url: avatarUrl,
+      })
+
+      if (res.success) {
+        setMsg('Данные профиля сохранены!')
+        setTimeout(() => setMsg(''), 2500)
+      } else {
+        setMsg(res.error || 'Ошибка при сохранении')
+      }
+    } catch (err) {
+      setMsg('Не удалось сохранить данные')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <div className="glass-panel w-full max-w-2xl rounded-3xl p-7 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[var(--accent-glow)] via-[#10B981] to-[var(--accent-glow)]" />
+
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] shrink-0">
+          <div className="flex items-center gap-2 text-[var(--accent-glow)]">
+            <Shield size={20} />
+            <h2 className="text-sm font-black tracking-wider text-[var(--text-main)] uppercase">Паспорт Студента</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] rounded-xl glass-input transition cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto pr-1 py-4 flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-5 glass-input p-5 rounded-2xl">
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              className="w-20 h-20 rounded-2xl object-cover border-2 border-[var(--accent-glow)] shadow-lg shadow-[var(--accent-glow)]/20 shrink-0"
+            />
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <h3 className="text-base font-extrabold text-[var(--text-main)]">
+                  {fullName || `@${username || 'Student'}`}
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-[var(--accent-glow)]/15 text-[var(--accent-glow)] border border-[var(--accent-glow)]/30">
+                  Lvl {profile?.level || 1}
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">@{username || profile?.username}</p>
+
+              <div className="mt-3">
+                <div className="flex justify-between text-[11px] font-mono text-[var(--text-muted)] mb-1">
+                  <span>Опыт до Lvl {(profile?.level || 1) + 1}</span>
+                  <span>{currentLvlXP} / 200 XP</span>
+                </div>
+                <div className="w-full h-2 bg-[var(--timer-track)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
+                  <div
+                    style={{ width: `${lvlProgressPercent}%` }}
+                    className="h-full bg-gradient-to-r from-[var(--accent-glow)] to-[#10B981] transition-all duration-500 rounded-full"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
+              <Clock size={18} className="text-[var(--accent-glow)] mb-1" />
+              <span className="text-lg font-black text-[var(--text-main)] font-mono">{totalFocusHours} ч</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Время фокуса</span>
+            </div>
+
+            <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
+              <Flame size={18} className="text-orange-500 mb-1" />
+              <span className="text-lg font-black text-[var(--text-main)] font-mono">{profile?.streak_count || 0} дн</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Серия стрика</span>
+            </div>
+
+            <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
+              <CheckCircle2 size={18} className="text-[#10B981] mb-1" />
+              <span className="text-lg font-black text-[var(--text-main)] font-mono">{completedTasksCount}</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Закрыто задач</span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSave} className="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+            <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-1.5">
+              <User size={14} className="text-[var(--accent-glow)]" />
+              <span>Личные данные</span>
+            </h4>
+
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] block mb-2 font-medium">Выберите аватар:</label>
+              <div className="flex gap-2.5">
+                {AVATAR_PRESETS.map((url, idx) => (
+                  <button
+                    type="button"
+                    key={idx}
+                    onClick={() => setAvatarUrl(url)}
+                    className={`relative rounded-xl overflow-hidden p-0.5 border-2 transition cursor-pointer ${
+                      avatarUrl === url ? 'border-[var(--accent-glow)] scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={url} alt="preset" className="w-10 h-10 rounded-lg object-cover" />
+                    {avatarUrl === url && (
+                      <div className="absolute inset-0 bg-[var(--accent-glow)]/30 flex items-center justify-center text-white">
+                        <Check size={14} />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">Никнейм</label>
+                <input
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">Полное имя</label>
+                <input
+                  type="text"
+                  placeholder="Имя Фамилия"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
+                />
+              </div>
+            </div>
+
+            {msg && (
+              <p className="text-xs text-center font-medium text-[#10B981] bg-[#10B981]/10 py-2 rounded-xl border border-[#10B981]/20">
+                {msg}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="mt-1 py-2.5 bg-[var(--accent-glow)] hover:opacity-90 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md"
+            >
+              {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
+            </button>
+          </form>
+
+          <div>
+            <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Award size={14} className="text-[#10B981]" />
+              <span>Достижения студента</span>
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {achievements.map((item, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-2xl flex items-center gap-3 border transition ${
+                    item.unlocked
+                      ? 'glass-input border-[#10B981]/30 bg-[#10B981]/10 text-[var(--text-main)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--input-bg)] opacity-40 text-[var(--text-muted)]'
+                  }`}
+                >
+                  <span className="text-2xl shrink-0">{item.icon}</span>
+                  <div className="overflow-hidden">
+                    <h5 className="text-xs font-bold text-[var(--text-main)] truncate">{item.title}</h5>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
