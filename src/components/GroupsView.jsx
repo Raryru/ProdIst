@@ -9,7 +9,8 @@ import SquadFlame from './SquadFlame'
 import GroupChat from './GroupChat'
 import { 
   Users, Plus, Award, ArrowRight, Check, Trash2, 
-  Crown, ShieldAlert, Radio, ArrowLeft, Globe, ArrowUpLeft
+  Crown, ShieldAlert, Radio, ArrowLeft, Globe, Lock,
+  BookOpen, Coffee, CheckSquare, Calendar
 } from 'lucide-react'
 
 export default function GroupsView() {
@@ -18,16 +19,24 @@ export default function GroupsView() {
   const { tasks } = useTaskStore()
   const { t } = useLocaleStore()
   const { 
-    myGroups = [], allGroups = [], currentMembers = [], selectedGroupId, 
+    myGroups = [], allGroups = [], currentMembers = [], groupAssignments = [], selectedGroupId, 
     fetchMyGroups, fetchAllGroups, createGroup, joinGroup, leaveGroup, 
-    fetchGroupMembers, changeMemberRole, deleteGroup 
+    fetchGroupMembers, changeMemberRole, deleteGroup, createAssignment 
   } = useGroupStore()
 
+  // Поля формы создания группы
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
+  const [groupType, setGroupType] = useState('peer') // 'peer' | 'academic' | 'lounge'
+  const [isPrivate, setIsPrivate] = useState(true)
+
+  // Поля формы добавления задания куратором
+  const [taskTitle, setTaskTitle] = useState('')
+  const [taskDueDate, setTaskDueDate] = useState('')
+
   const [onlineUsers, setOnlineUsers] = useState({})
   
-  // Вкладка в левой колонке: 'my' (мои группы) | 'all' (все группы / каталог)
+  // Вкладка в левой колонке: 'my' (мои группы) | 'all' (каталог)
   const [groupsTab, setGroupsTab] = useState('my')
   
   // Мобильный переключатель экранов: 'list' (список групп) | 'room' (комната/чат)
@@ -52,7 +61,7 @@ export default function GroupsView() {
     channelRef.current = channel
 
     const activeTask = (tasks || []).find((t) => t.id === selectedTaskId)
-    const taskTitle = activeTask ? activeTask.title : ''
+    const taskTitleCurrent = activeTask ? activeTask.title : ''
     const currentStatus = isRunning ? (mode === 'work' ? 'focus' : 'break') : 'idle'
 
     channel
@@ -83,7 +92,7 @@ export default function GroupsView() {
             username: profile?.username || user.email?.split('@')[0] || 'Студент',
             avatar_url: profile?.avatar_url,
             status: currentStatus,
-            taskTitle: taskTitle,
+            taskTitle: taskTitleCurrent,
             onlineAt: new Date().toISOString()
           })
         }
@@ -100,7 +109,7 @@ export default function GroupsView() {
     if (!channelRef.current || !user?.id) return
 
     const activeTask = (tasks || []).find((t) => t.id === selectedTaskId)
-    const taskTitle = activeTask ? activeTask.title : ''
+    const taskTitleCurrent = activeTask ? activeTask.title : ''
     const currentStatus = isRunning ? (mode === 'work' ? 'focus' : 'break') : 'idle'
 
     channelRef.current.track({
@@ -108,7 +117,7 @@ export default function GroupsView() {
       username: profile?.username || user.email?.split('@')[0] || 'Студент',
       avatar_url: profile?.avatar_url,
       status: currentStatus,
-      taskTitle: taskTitle,
+      taskTitle: taskTitleCurrent,
       onlineAt: new Date().toISOString()
     })
   }, [isRunning, mode, selectedTaskId, profile?.username, profile?.avatar_url])
@@ -116,7 +125,7 @@ export default function GroupsView() {
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!name.trim()) return
-    await createGroup(name, desc)
+    await createGroup(name, desc, groupType, isPrivate)
     setName('')
     setDesc('')
   }
@@ -127,15 +136,23 @@ export default function GroupsView() {
   }
 
   const handleBackToAllGroups = () => {
-    // Сброс активной группы в хранилище
     useGroupStore.setState({ selectedGroupId: null, currentMembers: [] })
     setMobileSection('list')
+  }
+
+  const handleAddAssignment = async (e) => {
+    e.preventDefault()
+    if (!taskTitle.trim() || !selectedGroupId) return
+    await createAssignment(selectedGroupId, taskTitle, taskDueDate)
+    setTaskTitle('')
+    setTaskDueDate('')
   }
 
   const myGroupIds = new Set((myGroups || []).map((g) => g.id))
   const selectedGroup = (allGroups || []).find((g) => g.id === selectedGroupId) || (myGroups || []).find((g) => g.id === selectedGroupId)
   const currentMember = (currentMembers || []).find((m) => m.user_id === user?.id)
   const isOwner = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  const isCuratorOrMod = currentMember?.role === 'owner' || currentMember?.role === 'moderator'
 
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-8 h-full overflow-hidden">
@@ -145,7 +162,7 @@ export default function GroupsView() {
         mobileSection === 'room' ? 'hidden lg:flex' : 'flex'
       }`}>
         
-        {/* Карточка создания */}
+        {/* Карточка создания группы */}
         <div className="glass-panel rounded-3xl p-4 md:p-5 shadow-xl shrink-0">
           <div className="flex items-center gap-2 text-[var(--accent-glow)] mb-3">
             <Users size={16} />
@@ -168,6 +185,42 @@ export default function GroupsView() {
               onChange={(e) => setDesc(e.target.value)}
               className="glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
             />
+
+            {/* Селектор архетипа группы */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
+                Тип гильдии
+              </label>
+              <select
+                value={groupType}
+                onChange={(e) => setGroupType(e.target.value)}
+                className="glass-input rounded-xl px-3 py-2 text-xs text-[var(--text-main)] outline-none cursor-pointer"
+              >
+                <option value="peer" className="bg-[var(--surface-card)] text-[var(--text-main)]">
+                  🤝 Дружеская (Приватная, общий стрик)
+                </option>
+                <option value="academic" className="bg-[var(--surface-card)] text-[var(--text-main)]">
+                  🎓 Академическая (Куратор, задания)
+                </option>
+                <option value="lounge" className="bg-[var(--surface-card)] text-[var(--text-main)]">
+                  ☕ Коворкинг (Открытая, пул часов)
+                </option>
+              </select>
+            </div>
+
+            {/* Переключатель приватности для Академических групп */}
+            {groupType === 'academic' && (
+              <label className="flex items-center gap-2 px-1 text-xs text-[var(--text-main)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isPrivate}
+                  onChange={(e) => setIsPrivate(e.target.checked)}
+                  className="rounded cursor-pointer accent-[var(--accent-glow)]"
+                />
+                <span>Приватная группа (по инвайту)</span>
+              </label>
+            )}
+
             <button
               type="submit"
               className="mt-1 px-4 py-2 bg-[var(--accent-glow)] hover:opacity-90 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
@@ -215,7 +268,12 @@ export default function GroupsView() {
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                      <div className="flex items-center gap-1.5">
+                        {group.group_type === 'academic' && <BookOpen size={13} className="text-amber-400 shrink-0" />}
+                        {group.group_type === 'lounge' && <Coffee size={13} className="text-emerald-400 shrink-0" />}
+                        {(!group.group_type || group.group_type === 'peer') && <Users size={13} className="text-indigo-400 shrink-0" />}
+                        <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                      </div>
                       <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{group.description || '—'}</p>
                     </div>
                     <ArrowRight size={14} className="text-[var(--text-muted)] shrink-0 ml-2" />
@@ -239,7 +297,17 @@ export default function GroupsView() {
                       } ${selectedGroupId === group.id ? 'border-[var(--accent-glow)] bg-[var(--accent-glow)]/10' : ''}`}
                     >
                       <div className="overflow-hidden flex-1">
-                        <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                        <div className="flex items-center gap-1.5">
+                          {group.group_type === 'academic' && <BookOpen size={13} className="text-amber-400 shrink-0" />}
+                          {group.group_type === 'lounge' && <Coffee size={13} className="text-emerald-400 shrink-0" />}
+                          {(!group.group_type || group.group_type === 'peer') && <Users size={13} className="text-indigo-400 shrink-0" />}
+                          <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                          {group.is_private ? (
+                            <Lock size={11} className="text-[var(--text-muted)] shrink-0" />
+                          ) : (
+                            <Globe size={11} className="text-[var(--text-muted)] shrink-0" />
+                          )}
+                        </div>
                         <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{group.description || '—'}</p>
                       </div>
 
@@ -289,8 +357,8 @@ export default function GroupsView() {
               </span>
             </div>
 
-            {/* Заголовок группы и стрик */}
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border-subtle)] shrink-0">
+            {/* Заголовок группы, бейдж архетипа и стрик */}
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border-subtle)] shrink-0">
               <div className="overflow-hidden pr-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xs font-black text-[var(--text-main)] tracking-wider uppercase truncate">
@@ -300,8 +368,12 @@ export default function GroupsView() {
                     <Radio size={10} className="animate-pulse" /> {Math.max(1, Object.keys(onlineUsers || {}).length)}
                   </span>
                 </div>
-                <div className="mt-2">
+
+                <div className="flex items-center gap-2 mt-2">
                   <SquadFlame streakCount={selectedGroup?.streak_count || 0} />
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-[var(--accent-glow)]/15 text-[var(--accent-glow)] border border-[var(--accent-glow)]/30">
+                    {selectedGroup?.group_type === 'academic' ? '🎓 Академическая' : selectedGroup?.group_type === 'lounge' ? '☕ Коворкинг' : '🤝 Дружеская'}
+                  </span>
                 </div>
               </div>
 
@@ -323,6 +395,54 @@ export default function GroupsView() {
                 </button>
               </div>
             </div>
+
+            {/* Блок заданий куратора (только для академических групп) */}
+            {selectedGroup?.group_type === 'academic' && (
+              <div className="glass-input p-3 rounded-2xl mb-3 flex flex-col shrink-0 max-h-48 overflow-hidden">
+                <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs mb-2 shrink-0">
+                  <CheckSquare size={14} />
+                  <span>Кураторские задания</span>
+                </div>
+
+                {isCuratorOrMod && (
+                  <form onSubmit={handleAddAssignment} className="flex gap-1.5 mb-2 shrink-0">
+                    <input
+                      type="text"
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="Новое задание..."
+                      className="flex-1 glass-input rounded-xl px-2.5 py-1 text-xs text-[var(--text-main)] outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={taskDueDate}
+                      onChange={(e) => setTaskDueDate(e.target.value)}
+                      className="glass-input rounded-xl px-2 py-1 text-[11px] text-[var(--text-muted)] outline-none"
+                    />
+                    <button type="submit" className="p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition cursor-pointer">
+                      <Plus size={13} />
+                    </button>
+                  </form>
+                )}
+
+                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                  {(!groupAssignments || groupAssignments.length === 0) ? (
+                    <span className="text-[11px] text-[var(--text-muted)] block text-center py-1">Заданий пока нет</span>
+                  ) : (
+                    groupAssignments.map((a) => (
+                      <div key={a.id} className="p-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-subtle)] flex items-center justify-between text-xs">
+                        <span className="font-medium text-[var(--text-main)] truncate">{a.title}</span>
+                        {a.due_date && (
+                          <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 shrink-0 ml-2">
+                            <Calendar size={10} /> {a.due_date}
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Список участников группы */}
             <div className="overflow-y-auto flex flex-col gap-2 pr-1 flex-1">
@@ -386,7 +506,8 @@ export default function GroupsView() {
                           <span>{t('profile.level')} {m?.profiles?.level || 1}</span>
                         </div>
 
-                        {isOwner && m?.user_id !== user?.id && (
+                        {/* Ролевой бейдж или селектор модератора для создателя */}
+                        {isOwner && m?.user_id !== user?.id ? (
                           <select
                             value={m?.role || 'member'}
                             onChange={(e) => changeMemberRole(selectedGroupId, m.user_id, e.target.value)}
@@ -395,6 +516,12 @@ export default function GroupsView() {
                             <option value="member" className="bg-[var(--surface-card)] text-[var(--text-main)]">{t('groups.members')}</option>
                             <option value="moderator" className="bg-[var(--surface-card)] text-[var(--text-main)]">Модератор</option>
                           </select>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[var(--border-subtle)] text-[var(--text-muted)]">
+                            {m?.role === 'owner' 
+                              ? (selectedGroup?.group_type === 'academic' ? '🎓 Куратор' : 'Владелец') 
+                              : m?.role === 'moderator' ? '🛡️ Модератор' : 'Участник'}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -422,7 +549,12 @@ export default function GroupsView() {
                   return (
                     <div key={group.id} className="glass-input p-3.5 rounded-2xl flex items-center justify-between gap-3">
                       <div className="overflow-hidden">
-                        <h3 className="text-xs font-bold text-[var(--text-main)]">{group.name}</h3>
+                        <div className="flex items-center gap-1.5">
+                          {group.group_type === 'academic' && <BookOpen size={13} className="text-amber-400 shrink-0" />}
+                          {group.group_type === 'lounge' && <Coffee size={13} className="text-emerald-400 shrink-0" />}
+                          {(!group.group_type || group.group_type === 'peer') && <Users size={13} className="text-indigo-400 shrink-0" />}
+                          <h3 className="text-xs font-bold text-[var(--text-main)]">{group.name}</h3>
+                        </div>
                         <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{group.description || '—'}</p>
                       </div>
                       {isJoined ? (
@@ -449,7 +581,7 @@ export default function GroupsView() {
         )}
       </div>
 
-      {/* ПРАВАЯ КОЛОНКА: Realtime Чат группы */}
+      {/* ПРАВАЯ КОЛОНКА: Realtime-Чат группы */}
       <div className={`col-span-12 lg:col-span-4 flex flex-col h-full overflow-hidden ${
         mobileSection === 'list' ? 'hidden lg:flex' : 'flex'
       }`}>
