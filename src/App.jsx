@@ -14,6 +14,7 @@ import { useLocaleStore } from './store/useLocaleStore'
 
 // Модули интерфейса и мобильная навигация
 import PomodoroTimer from './components/PomodoroTimer'
+import FocusGrid from './components/FocusGrid'
 import GroupsView from './components/GroupsView'
 import InboxView from './components/InboxView'
 import ProfileModal from './components/ProfileModal'
@@ -396,7 +397,7 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-12 gap-4 md:gap-8 h-full overflow-hidden">
             
-            {/* БЛОК ФОКУСА */}
+            {/* БЛОК ФОКУСА И АКТИВНОСТИ */}
             <div className={`col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 h-full overflow-y-auto pr-0 md:pr-1 ${
               currentView === 'tasks' ? 'hidden md:flex' : 'flex'
             }`}>
@@ -441,7 +442,11 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Таймер глубокого фокуса */}
               <PomodoroTimer />
+
+              {/* Матрица активности Focus Grid */}
+              <FocusGrid />
             </div>
 
             {/* СПИСОК ЗАДАЧ */}

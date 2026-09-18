@@ -5,6 +5,7 @@ import { useTaskStore } from '../store/useTaskStore'
 import { useInboxStore } from '../store/useInboxStore'
 import { useTimerStore } from '../store/useTimerStore'
 import { useLocaleStore } from '../store/useLocaleStore'
+import { useSessionStore } from '../store/useSessionStore'
 import { supabase } from '../lib/supabase'
 
 export default function PomodoroTimer() {
@@ -12,6 +13,7 @@ export default function PomodoroTimer() {
   const { tasks, addTimeToTask } = useTaskStore()
   const { addIdea } = useInboxStore()
   const { t } = useLocaleStore()
+  const { logSession } = useSessionStore()
 
   const {
     mode,
@@ -71,7 +73,7 @@ export default function PomodoroTimer() {
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [tick])
 
-  // Сохранение фокуса при закрытии вкладки
+  // Сохранение фокуса и сессии при закрытии или обновлении вкладки
   useEffect(() => {
     const handleExitOrUnload = () => {
       const { mode: curMode, timeLeft: curLeft, isRunning: active, selectedTaskId: taskId, profile: curProf } = stateRef.current
@@ -88,6 +90,16 @@ export default function PomodoroTimer() {
             const newXP = (curProf.xp || 0) + earnedXP
             const newLevel = Math.floor(newXP / 200) + 1
             supabase.from('profiles').update({ xp: newXP, level: newLevel }).eq('id', curProf.id).then()
+
+            // Логирование сессии в таблицу study_sessions при выгрузке страницы
+            supabase.from('study_sessions').insert([
+              {
+                user_id: curProf.id,
+                task_id: taskId || null,
+                duration_seconds: elapsed,
+                xp_earned: earnedXP,
+              },
+            ]).then()
           }
         }
       }
@@ -101,19 +113,31 @@ export default function PomodoroTimer() {
     }
   }, [tasks])
 
+  // Полное завершение рабочего цикла (25 минут)
   const handleComplete = useCallback(async () => {
     if (mode === 'work') {
-      await addXP(50)
+      const sessionDuration = 25 * 60
+      const earnedXP = 50
+
+      await addXP(earnedXP)
       if (selectedTaskId) {
-        await addTimeToTask(selectedTaskId, 25 * 60)
+        await addTimeToTask(selectedTaskId, sessionDuration)
       }
+
+      // Сохраняем сессию в базу данных для Focus Grid
+      await logSession({
+        taskId: selectedTaskId || null,
+        durationSeconds: sessionDuration,
+        xpEarned: earnedXP,
+      })
+
       alert(`🎉 25 ${t('pomodoro.minutes')} ${t('pomodoro.work').toLowerCase()}! +50 XP.`)
       switchMode('break')
     } else {
       alert(`🔔 ${t('pomodoro.break')}!`)
       switchMode('work')
     }
-  }, [mode, selectedTaskId, addXP, addTimeToTask, switchMode, t])
+  }, [mode, selectedTaskId, addXP, addTimeToTask, switchMode, t, logSession])
 
   useEffect(() => {
     if (timeLeft === 0 && !isRunning) {
@@ -121,6 +145,7 @@ export default function PomodoroTimer() {
     }
   }, [timeLeft, isRunning, handleComplete])
 
+  // Досрочный зачет на паузе (от 1 минуты)
   const handleFinishEarly = async () => {
     if (mode === 'work') {
       const elapsedSeconds = 25 * 60 - timeLeft
@@ -132,6 +157,14 @@ export default function PomodoroTimer() {
         if (selectedTaskId) {
           await addTimeToTask(selectedTaskId, elapsedSeconds)
         }
+
+        // Сохраняем фактически отработанное время в Focus Grid
+        await logSession({
+          taskId: selectedTaskId || null,
+          durationSeconds: elapsedSeconds,
+          xpEarned: earnedXP,
+        })
+
         alert(`🎉 +${earnedXP} XP (${earnedMinutes} ${t('pomodoro.minutes')})`)
       }
       resetTimer()
