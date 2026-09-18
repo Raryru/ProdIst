@@ -31,6 +31,15 @@ export default function PomodoroTimer() {
   const [quickThought, setQuickThought] = useState('')
   const focusTasks = tasks.filter((t) => t.is_in_focus && !t.is_completed)
 
+  // Вспомогательная функция: гарантированное получение локальной даты клиента YYYY-MM-DD
+  const getLocalDateString = () => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const stateRef = useRef({ mode, timeLeft, isRunning, selectedTaskId, profile })
   useEffect(() => {
     stateRef.current = { mode, timeLeft, isRunning, selectedTaskId, profile }
@@ -79,7 +88,7 @@ export default function PomodoroTimer() {
       const { mode: curMode, timeLeft: curLeft, isRunning: active, selectedTaskId: taskId, profile: curProf } = stateRef.current
       if (curMode === 'work' && active) {
         const elapsed = 25 * 60 - curLeft
-        if (elapsed >= 60) {
+        if (elapsed >= 5) {
           const earnedXP = Math.max(5, Math.round((elapsed / (25 * 60)) * 50))
           if (taskId) {
             const task = tasks.find((item) => item.id === taskId)
@@ -91,13 +100,14 @@ export default function PomodoroTimer() {
             const newLevel = Math.floor(newXP / 200) + 1
             supabase.from('profiles').update({ xp: newXP, level: newLevel }).eq('id', curProf.id).then()
 
-            // Логирование сессии в таблицу study_sessions при выгрузке страницы
+            // Прямая отправка в study_sessions с локальной датой
             supabase.from('study_sessions').insert([
               {
                 user_id: curProf.id,
                 task_id: taskId || null,
                 duration_seconds: elapsed,
                 xp_earned: earnedXP,
+                session_date: getLocalDateString(),
               },
             ]).then()
           }
@@ -124,7 +134,6 @@ export default function PomodoroTimer() {
         await addTimeToTask(selectedTaskId, sessionDuration)
       }
 
-      // Сохраняем сессию в базу данных для Focus Grid
       await logSession({
         taskId: selectedTaskId || null,
         durationSeconds: sessionDuration,
@@ -145,12 +154,12 @@ export default function PomodoroTimer() {
     }
   }, [timeLeft, isRunning, handleComplete])
 
-  // Досрочный зачет на паузе (от 1 минуты)
+  // Досрочный зачет на паузе (от 5 секунд для быстрого тестирования)
   const handleFinishEarly = async () => {
     if (mode === 'work') {
       const elapsedSeconds = 25 * 60 - timeLeft
-      if (elapsedSeconds >= 60) {
-        const earnedMinutes = Math.round(elapsedSeconds / 60)
+      if (elapsedSeconds >= 5) {
+        const earnedMinutes = Math.max(1, Math.round(elapsedSeconds / 60))
         const earnedXP = Math.max(5, Math.round((elapsedSeconds / (25 * 60)) * 50))
 
         await addXP(earnedXP)
@@ -158,7 +167,7 @@ export default function PomodoroTimer() {
           await addTimeToTask(selectedTaskId, elapsedSeconds)
         }
 
-        // Сохраняем фактически отработанное время в Focus Grid
+        // Логирование в study_sessions
         await logSession({
           taskId: selectedTaskId || null,
           durationSeconds: elapsedSeconds,
@@ -276,13 +285,14 @@ export default function PomodoroTimer() {
           <span>{isRunning ? t('pomodoro.pause') : t('pomodoro.start')}</span>
         </button>
 
-        {!isRunning && mode === 'work' && elapsedMinutes >= 1 && (
+        {/* Кнопка "Завершить" доступна сразу после 5 секунд работы на паузе */}
+        {!isRunning && mode === 'work' && elapsedSeconds >= 5 && (
           <button
             onClick={handleFinishEarly}
             className="px-4 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
           >
             <CheckCircle2 size={14} />
-            <span>{t('pomodoro.finish')} ({elapsedMinutes}{t('pomodoro.minutes')})</span>
+            <span>{t('pomodoro.finish')} ({Math.max(1, Math.round(elapsedSeconds / 60))}{t('pomodoro.minutes')})</span>
           </button>
         )}
 

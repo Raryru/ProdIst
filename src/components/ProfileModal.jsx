@@ -7,7 +7,6 @@ import { useTaskStore } from '../store/useTaskStore'
 import { useLocaleStore } from '../store/useLocaleStore'
 import { useSessionStore } from '../store/useSessionStore'
 
-// Пресеты аватаров студента
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
@@ -15,6 +14,11 @@ const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
 ]
+
+// Локальный форматтер даты YYYY-MM-DD
+const formatLocalDate = (d) => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 export default function ProfileModal({ isOpen, onClose }) {
   const { profile, updateProfile } = useAuthStore()
@@ -28,7 +32,6 @@ export default function ProfileModal({ isOpen, onClose }) {
   const [isSaving, setIsSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
-  // Синхронизация данных профиля и загрузка сессий за последние 7 дней
   useEffect(() => {
     if (profile) {
       setUsername(profile.username || '')
@@ -40,14 +43,12 @@ export default function ProfileModal({ isOpen, onClose }) {
       const end = new Date()
       const start = new Date()
       start.setDate(end.getDate() - 6)
-      start.setHours(0, 0, 0, 0)
-      end.setHours(23, 59, 59, 999)
 
-      fetchSessions(start.toISOString(), end.toISOString())
+      fetchSessions(formatLocalDate(start), formatLocalDate(end))
     }
-  }, [profile, isOpen, fetchSessions])
+  }, [profile, isOpen])
 
-  // Агрегация недельной активности для Bar Chart
+  // Агрегация недельной активности СТРОГО по session_date
   const weeklyData = useMemo(() => {
     const days = []
     const dayLabels = {
@@ -60,11 +61,16 @@ export default function ProfileModal({ isOpen, onClose }) {
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
+      const dateStr = formatLocalDate(d)
       const label = currentLabels[d.getDay()]
 
+      // Сравнение по session_date (локальной дате)
       const dayMins = sessions
-        .filter((s) => s.created_at?.startsWith(dateStr))
+        .filter((s) => {
+          if (s.session_date) return s.session_date === dateStr
+          const sDate = new Date(s.created_at)
+          return formatLocalDate(sDate) === dateStr
+        })
         .reduce((acc, curr) => acc + Math.round((curr.duration_seconds || 0) / 60), 0)
 
       days.push({ date: dateStr, label, minutes: dayMins })
@@ -78,19 +84,14 @@ export default function ProfileModal({ isOpen, onClose }) {
 
   if (!isOpen) return null
 
-  // Расчет базовых показателей
   const totalFocusSeconds = tasks.reduce((sum, t) => sum + (t.time_spent || 0), 0)
   const totalFocusHours = (totalFocusSeconds / 3600).toFixed(1)
   const completedTasksCount = tasks.filter((t) => t.is_completed).length
-
-  // Сокращение для часов в зависимости от текущего языка
   const hoursUnit = locale === 'kz' ? 'с' : locale === 'en' ? 'h' : 'ч'
 
-  // Прогресс уровня
   const currentLvlXP = (profile?.xp || 0) % 200
   const lvlProgressPercent = Math.min(100, Math.round((currentLvlXP / 200) * 100))
 
-  // Система бейджей
   const achievements = [
     {
       title: locale === 'kz' ? 'Алғашқы фокус' : locale === 'en' ? 'First Focus' : 'Первый Фокус',
@@ -146,10 +147,8 @@ export default function ProfileModal({ isOpen, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div className="glass-panel w-full max-w-2xl rounded-3xl p-7 shadow-2xl border border-[var(--border-subtle)] relative overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Неоновый индикатор в шапке */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[var(--accent-glow)] via-[#10B981] to-[var(--accent-glow)]" />
 
-        {/* Заголовок модального окна */}
         <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] shrink-0">
           <div className="flex items-center gap-2 text-[var(--accent-glow)]">
             <Shield size={20} />
@@ -165,9 +164,7 @@ export default function ProfileModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Скроллируемая панель */}
         <div className="overflow-y-auto pr-1 py-4 flex flex-col gap-6">
-          {/* Визитка: Аватар, Уровень, Шкала опыта */}
           <div className="flex flex-col sm:flex-row items-center gap-5 glass-input p-5 rounded-2xl border border-[var(--border-subtle)]">
             <img
               src={avatarUrl}
@@ -185,7 +182,6 @@ export default function ProfileModal({ isOpen, onClose }) {
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">@{username || profile?.username}</p>
 
-              {/* Шкала XP */}
               <div className="mt-3">
                 <div className="flex justify-between text-[11px] font-mono text-[var(--text-muted)] mb-1">
                   <span>XP: {(profile?.level || 1) + 1} {t('profile.level')}</span>
@@ -201,7 +197,6 @@ export default function ProfileModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Карточки ключевых показателей */}
           <div className="grid grid-cols-3 gap-3">
             <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center border border-[var(--border-subtle)]">
               <Clock size={18} className="text-[var(--accent-glow)] mb-1" />
@@ -222,7 +217,6 @@ export default function ProfileModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Недельный график концентрации (Weekly Bar Chart) */}
           <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--input-bg)] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-main)]">
@@ -255,14 +249,12 @@ export default function ProfileModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          {/* Форма изменения профиля */}
           <form onSubmit={handleSave} className="glass-panel p-5 rounded-2xl flex flex-col gap-4 border border-[var(--border-subtle)]">
             <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-1.5">
               <User size={14} className="text-[var(--accent-glow)]" />
               <span>{locale === 'kz' ? 'Жеке деректер' : locale === 'en' ? 'Personal Details' : 'Личные данные'}</span>
             </h4>
 
-            {/* Выбор аватара */}
             <div>
               <label className="text-[11px] text-[var(--text-muted)] block mb-2 font-medium">{t('profile.avatar')}:</label>
               <div className="flex gap-2.5">
@@ -327,7 +319,6 @@ export default function ProfileModal({ isOpen, onClose }) {
             </button>
           </form>
 
-          {/* Достижения студента */}
           <div>
             <h4 className="text-xs font-bold text-[var(--text-muted)] tracking-wider uppercase mb-3 flex items-center gap-1.5">
               <Award size={14} className="text-[#10B981]" />

@@ -75,15 +75,15 @@ export default function GroupChat({ groupId }) {
 
   return (
     <div className="glass-panel rounded-2xl flex flex-col h-full border border-[var(--border-subtle)] overflow-hidden">
-      {/* Шапка чата */}
+      {/* Шапка чата: "Чат группы" / "Топ чаты" */}
       <div className="p-3 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--input-bg)] shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-main)]">
           <MessageSquare size={14} className="text-[var(--accent-glow)]" />
-          <span>{t('groups.title')}</span>
+          <span>{t('chat.title')}</span>
         </div>
         {isFocusLocked && (
           <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 font-medium">
-            <Lock size={10} /> {t('groups.chatLocked')}
+            <Lock size={10} /> {t('chat.locked')}
           </span>
         )}
       </div>
@@ -92,11 +92,13 @@ export default function GroupChat({ groupId }) {
       <div className="flex-1 p-3 overflow-y-auto space-y-3">
         {loading ? (
           <div className="text-center text-xs text-[var(--text-muted)] mt-10">
-            {t('common.loading')}
+            {t('chat.loading')}
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-xs text-[var(--text-muted)] mt-10">
-            {t('groups.empty')}
+          <div className="text-center text-xs text-[var(--text-muted)] mt-10 flex flex-col items-center gap-2">
+            <MessageSquare size={20} className="opacity-40" />
+            {/* "Сообщений пока нет" / "Әзірге хабарламалар жоқ" */}
+            <span>{t('chat.empty')}</span>
           </div>
         ) : (
           messages.map((m) => {
@@ -111,7 +113,7 @@ export default function GroupChat({ groupId }) {
             return (
               <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <span className="text-[10px] text-[var(--text-muted)] mb-0.5 px-1 font-medium">
-                  {isMe ? (locale === 'kz' ? 'Сіз' : locale === 'en' ? 'You' : 'Вы') : `@${m.profiles?.username || 'Студент'}`}
+                  {isMe ? t('chat.you') : `@${m.profiles?.username || 'Студент'}`}
                 </span>
                 <div
                   className={`px-3 py-1.5 rounded-xl text-xs max-w-[85%] break-words ${
@@ -134,7 +136,7 @@ export default function GroupChat({ groupId }) {
         <input
           type="text"
           disabled={isFocusLocked}
-          placeholder={isFocusLocked ? t('groups.chatLocked') : t('groups.chatPlaceholder')}
+          placeholder={isFocusLocked ? t('chat.locked') : t('chat.placeholder')}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           className="flex-1 glass-input rounded-xl px-3 py-1.5 text-xs text-[var(--text-main)] placeholder:text-[var(--text-muted)] outline-none disabled:opacity-50"

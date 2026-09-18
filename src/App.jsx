@@ -17,6 +17,7 @@ import PomodoroTimer from './components/PomodoroTimer'
 import FocusGrid from './components/FocusGrid'
 import GroupsView from './components/GroupsView'
 import InboxView from './components/InboxView'
+import TodoView from './components/TodoView'
 import ProfileModal from './components/ProfileModal'
 import MobileTabBar from './components/MobileTabBar'
 import { LanguageSelector } from './components/LanguageSelector'
@@ -24,8 +25,7 @@ import { LanguageSelector } from './components/LanguageSelector'
 // Векторные иконки Lucide
 import { 
   Flame, Award, LogOut, Sparkles, ArrowRight, Mail, Lock, User, 
-  CheckCircle2, Circle, Zap, Plus, Trash2, Target, ListTodo, Users, 
-  LayoutDashboard, Inbox, Sun, Moon 
+  Zap, Target, Users, LayoutDashboard, Inbox, Sun, Moon, Circle 
 } from 'lucide-react'
 
 // =========================================================================
@@ -36,7 +36,7 @@ export default function App() {
   // 2.1. Состояние хранилищ (Zustand)
   // -----------------------------------------------------------------------
   const { user, profile, checkSession, signOut, loading } = useAuthStore()
-  const { tasks, fetchTasks, addTask, toggleTask, toggleFocus, deleteTask } = useTaskStore()
+  const { tasks, fetchTasks, toggleTask, toggleFocus } = useTaskStore()
   const { myGroups, fetchMyGroups } = useGroupStore()
   const { isRunning, mode, selectedTaskId } = useTimerStore()
   const { theme, initTheme, toggleTheme } = useThemeStore()
@@ -55,11 +55,6 @@ export default function App() {
   const [username, setUsername] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
-
-  // Поля создания задач
-  const [newTaskTitle, setNewTaskTitle] = useState('')
-  const [newTaskPriority, setNewTaskPriority] = useState('low')
-  const [activeTab, setActiveTab] = useState('all')
 
   // -----------------------------------------------------------------------
   // 2.3. Синхронизация сессии, темы и локали
@@ -122,7 +117,7 @@ export default function App() {
   }, [user?.id, myGroups, isRunning, mode, selectedTaskId, profile?.username, profile?.avatar_url, tasks])
 
   // -----------------------------------------------------------------------
-  // 2.4. Обработчики событий
+  // 2.4. Обработчик авторизации
   // -----------------------------------------------------------------------
   const handleAuth = async (e) => {
     e.preventDefault()
@@ -149,13 +144,6 @@ export default function App() {
     }
   }
 
-  const handleAddTask = async (e) => {
-    e.preventDefault()
-    if (!newTaskTitle.trim()) return
-    await addTask(newTaskTitle.trim(), newTaskPriority)
-    setNewTaskTitle('')
-  }
-
   // -----------------------------------------------------------------------
   // 2.5. ЭКРАН 1: ЗАГРУЗКА
   // -----------------------------------------------------------------------
@@ -179,7 +167,6 @@ export default function App() {
         <div className="w-full max-w-md glass-panel rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[var(--accent-glow)] to-[#10B981]" />
           
-          {/* Кнопка выбора языка на экране логина */}
           <div className="flex justify-end mb-2">
             <LanguageSelector />
           </div>
@@ -282,7 +269,6 @@ export default function App() {
   }
 
   const focusTasks = tasks.filter((t) => t.is_in_focus && !t.is_completed)
-  const displayedTasks = activeTab === 'focus' ? tasks.filter((t) => t.is_in_focus) : tasks
 
   // -----------------------------------------------------------------------
   // 2.7. ЭКРАН 3: ГЛАВНЫЙ ИНТЕРФЕЙС
@@ -349,13 +335,11 @@ export default function App() {
             <span>{profile?.streak_count || 0} {t('profile.streak')}</span>
           </div>
 
-          {/* Переключатель языков RU / ҚАЗ / EN */}
           <LanguageSelector />
 
-          {/* Переключатель темы */}
           <button
             onClick={toggleTheme}
-            title={theme === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
+            title={theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
             className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] glass-input rounded-xl transition cursor-pointer"
           >
             {theme === 'dark' ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} className="text-[var(--accent-glow)]" />}
@@ -397,7 +381,7 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-12 gap-4 md:gap-8 h-full overflow-hidden">
             
-            {/* БЛОК ФОКУСА И АКТИВНОСТИ */}
+            {/* СОЛ ЖАҚ: ФОКУС, ТАЙМЕР, FOCUS GRID */}
             <div className={`col-span-12 lg:col-span-5 flex flex-col gap-4 md:gap-6 h-full overflow-y-auto pr-0 md:pr-1 ${
               currentView === 'tasks' ? 'hidden md:flex' : 'flex'
             }`}>
@@ -449,126 +433,11 @@ export default function App() {
               <FocusGrid />
             </div>
 
-            {/* СПИСОК ЗАДАЧ */}
+            {/* ОҢ ЖАҚ: ТОЛЫҚ БАСҚАРЫЛАТЫН СҮЗГІЛЕРІ БАР TODOVIEW */}
             <div className={`col-span-12 lg:col-span-7 flex flex-col h-full overflow-hidden ${
               currentView === 'dashboard' ? 'hidden md:flex' : 'flex'
             }`}>
-              <div className="glass-panel rounded-3xl p-4 md:p-6 flex flex-col h-full overflow-hidden shadow-lg">
-                <div className="flex items-center justify-between mb-4 md:mb-5 shrink-0">
-                  <div className="flex items-center gap-2 text-[var(--text-main)] font-bold text-xs uppercase tracking-wider">
-                    <ListTodo size={18} className="text-[var(--accent-glow)]" />
-                    <span>{t('todo.title')}</span>
-                  </div>
-
-                  <div className="glass-input p-1 rounded-xl flex gap-1">
-                    <button
-                      onClick={() => setActiveTab('all')}
-                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                        activeTab === 'all' ? 'bg-[var(--accent-glow)] text-white' : 'text-[var(--text-muted)]'
-                      }`}
-                    >
-                      {t('todo.all')} ({tasks.length})
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('focus')}
-                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                        activeTab === 'focus' ? 'bg-[var(--accent-glow)] text-white' : 'text-[var(--text-muted)]'
-                      }`}
-                    >
-                      {t('todo.focusOnly')} ({tasks.filter((t) => t.is_in_focus).length})
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleAddTask} className="flex gap-2 mb-4 shrink-0">
-                  <input
-                    type="text"
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder={t('todo.placeholder')}
-                    className="flex-1 glass-input rounded-2xl px-4 py-2.5 text-xs outline-none transition"
-                  />
-                  
-                  <select
-                    value={newTaskPriority}
-                    onChange={(e) => setNewTaskPriority(e.target.value)}
-                    className="glass-input rounded-2xl px-2.5 py-2.5 text-xs outline-none cursor-pointer"
-                  >
-                    <option value="low">{t('todo.priorityLow')}</option>
-                    <option value="medium">⚡ {t('todo.priorityMedium')}</option>
-                    <option value="high">🔥 {t('todo.priorityHigh')}</option>
-                  </select>
-
-                  <button
-                    type="submit"
-                    className="px-4 py-2.5 bg-[var(--accent-glow)] hover:opacity-90 text-white font-bold text-xs rounded-2xl transition flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </form>
-
-                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2.5">
-                  {displayedTasks.length === 0 ? (
-                    <div className="text-center py-16 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)] rounded-2xl">
-                      {t('todo.empty')}
-                    </div>
-                  ) : (
-                    displayedTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`glass-input p-3.5 rounded-2xl flex items-center justify-between gap-3 transition-all ${
-                          task.is_completed ? 'opacity-45' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 overflow-hidden flex-1">
-                          <button 
-                            onClick={() => toggleTask(task.id, task.is_completed)} 
-                            className="text-[var(--text-muted)] hover:text-[#10B981] transition cursor-pointer shrink-0"
-                          >
-                            {task.is_completed ? <CheckCircle2 size={18} className="text-[#10B981]" /> : <Circle size={18} />}
-                          </button>
-
-                          <span className={`text-xs font-medium truncate ${task.is_completed ? 'line-through text-[var(--text-muted)]' : ''}`}>
-                            {task.title}
-                          </span>
-
-                          {(task.time_spent || 0) > 0 && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--accent-glow)]/10 text-[var(--accent-glow)] border border-[var(--accent-glow)]/20 shrink-0">
-                              {Math.max(1, Math.round((task.time_spent || 0) / 60))} {t('pomodoro.minutes')}
-                            </span>
-                          )}
-
-                          {task.priority === 'high' && (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 shrink-0">
-                              HIGH
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => toggleFocus(task.id, task.is_in_focus)}
-                            title={task.is_in_focus ? "Убрать из фокуса" : "Добавить в фокус"}
-                            className={`p-1.5 rounded-xl transition cursor-pointer ${
-                              task.is_in_focus ? 'text-[var(--accent-glow)] bg-[var(--accent-glow)]/15 border border-[var(--accent-glow)]/30' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-                            }`}
-                          >
-                            <Zap size={14} fill={task.is_in_focus ? 'currentColor' : 'none'} />
-                          </button>
-                          
-                          <button
-                            onClick={() => deleteTask(task.id)}
-                            title="Удалить"
-                            className="p-1.5 text-[var(--text-muted)] hover:text-red-400 transition cursor-pointer"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <TodoView />
             </div>
           </div>
         )}
