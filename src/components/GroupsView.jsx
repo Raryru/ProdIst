@@ -3,18 +3,20 @@ import { useGroupStore } from '../store/useGroupStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useTimerStore } from '../store/useTimerStore'
 import { useTaskStore } from '../store/useTaskStore'
+import { useLocaleStore } from '../store/useLocaleStore'
 import { supabase } from '../lib/supabase'
 import SquadFlame from './SquadFlame'
 import GroupChat from './GroupChat'
 import { 
   Users, Plus, Award, ArrowRight, Check, Trash2, 
-  Crown, ShieldAlert, Radio, MessageSquare, ArrowLeft
+  Crown, ShieldAlert, Radio, ArrowLeft, Globe, ArrowUpLeft
 } from 'lucide-react'
 
 export default function GroupsView() {
   const { user, profile } = useAuthStore()
   const { isRunning, mode, selectedTaskId } = useTimerStore()
   const { tasks } = useTaskStore()
+  const { t } = useLocaleStore()
   const { 
     myGroups = [], allGroups = [], currentMembers = [], selectedGroupId, 
     fetchMyGroups, fetchAllGroups, createGroup, joinGroup, leaveGroup, 
@@ -25,7 +27,10 @@ export default function GroupsView() {
   const [desc, setDesc] = useState('')
   const [onlineUsers, setOnlineUsers] = useState({})
   
-  // Мобильный переключатель: 'list' (список гильдий) | 'room' (комната/чат)
+  // Вкладка в левой колонке: 'my' (мои группы) | 'all' (все группы / каталог)
+  const [groupsTab, setGroupsTab] = useState('my')
+  
+  // Мобильный переключатель экранов: 'list' (список групп) | 'room' (комната/чат)
   const [mobileSection, setMobileSection] = useState('list')
 
   const channelRef = useRef(null)
@@ -35,6 +40,7 @@ export default function GroupsView() {
     fetchAllGroups()
   }, [])
 
+  // Realtime Presence для выбранной группы
   useEffect(() => {
     if (!selectedGroupId || !user?.id) return
 
@@ -89,6 +95,7 @@ export default function GroupsView() {
     }
   }, [selectedGroupId, user?.id])
 
+  // Мягкое обновление статуса внутри группы при смене таймера
   useEffect(() => {
     if (!channelRef.current || !user?.id) return
 
@@ -119,6 +126,12 @@ export default function GroupsView() {
     setMobileSection('room')
   }
 
+  const handleBackToAllGroups = () => {
+    // Сброс активной группы в хранилище
+    useGroupStore.setState({ selectedGroupId: null, currentMembers: [] })
+    setMobileSection('list')
+  }
+
   const myGroupIds = new Set((myGroups || []).map((g) => g.id))
   const selectedGroup = (allGroups || []).find((g) => g.id === selectedGroupId) || (myGroups || []).find((g) => g.id === selectedGroupId)
   const currentMember = (currentMembers || []).find((m) => m.user_id === user?.id)
@@ -127,27 +140,30 @@ export default function GroupsView() {
   return (
     <div className="grid grid-cols-12 gap-4 md:gap-8 h-full overflow-hidden">
       
-      {/* ЛЕВАЯ КОЛОНКА: Создание и Мои группы (на смартфонах показывается при mobileSection === 'list') */}
+      {/* ЛЕВАЯ КОЛОНКА: Создание и навигация по группам */}
       <div className={`col-span-12 lg:col-span-4 flex flex-col gap-4 md:gap-6 h-full overflow-y-auto pr-0 md:pr-1 ${
         mobileSection === 'room' ? 'hidden lg:flex' : 'flex'
       }`}>
+        
         {/* Карточка создания */}
         <div className="glass-panel rounded-3xl p-4 md:p-5 shadow-xl shrink-0">
           <div className="flex items-center gap-2 text-[var(--accent-glow)] mb-3">
             <Users size={16} />
-            <h2 className="text-xs font-bold text-[var(--text-main)] tracking-wider uppercase">Создать Учебную Группу</h2>
+            <h2 className="text-xs font-bold text-[var(--text-main)] tracking-wider uppercase">
+              {t('groups.createTitle')}
+            </h2>
           </div>
           <form onSubmit={handleCreate} className="flex flex-col gap-2.5">
             <input
               type="text"
-              placeholder="Название группы"
+              placeholder={t('groups.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
             />
             <input
               type="text"
-              placeholder="Цель / Описание"
+              placeholder={t('groups.descPlaceholder')}
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
               className="glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
@@ -157,65 +173,128 @@ export default function GroupsView() {
               className="mt-1 px-4 py-2 bg-[var(--accent-glow)] hover:opacity-90 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
             >
               <Plus size={15} />
-              <span>Создать команду</span>
+              <span>{t('groups.createBtn')}</span>
             </button>
           </form>
         </div>
 
-        {/* Список моих групп */}
+        {/* Список групп с переключателем «Мои» / «Все» */}
         <div className="glass-panel rounded-3xl p-4 md:p-5 shadow-xl flex-1 flex flex-col overflow-hidden">
-          <h2 className="text-xs font-bold text-[var(--text-muted)] tracking-wider uppercase mb-3">
-            Мои Группы ({myGroups?.length || 0})
-          </h2>
+          <div className="glass-input p-1 rounded-xl flex gap-1 mb-3 shrink-0">
+            <button
+              onClick={() => setGroupsTab('my')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                groupsTab === 'my' ? 'bg-[var(--accent-glow)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t('groups.myGroups')} ({myGroups?.length || 0})
+            </button>
+            <button
+              onClick={() => setGroupsTab('all')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                groupsTab === 'all' ? 'bg-[var(--accent-glow)] text-white shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t('groups.allGroups')} ({allGroups?.length || 0})
+            </button>
+          </div>
+
           <div className="overflow-y-auto flex flex-col gap-2 flex-1 pr-1">
-            {!myGroups || myGroups.length === 0 ? (
-              <div className="text-center py-8 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)] rounded-2xl">
-                Вы пока не состоите в группах.
-              </div>
-            ) : (
-              myGroups.map((group) => (
-                <div
-                  key={group.id}
-                  onClick={() => handleSelectGroup(group.id)}
-                  className={`glass-input p-3 rounded-2xl cursor-pointer transition flex items-center justify-between ${
-                    selectedGroupId === group.id ? 'border-[var(--accent-glow)] bg-[var(--accent-glow)]/10' : 'hover:border-[var(--accent-glow)]/40'
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
-                    <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{group.description || 'Без описания'}</p>
-                  </div>
-                  <ArrowRight size={14} className="text-[var(--text-muted)] shrink-0 ml-2" />
+            {groupsTab === 'my' ? (
+              !myGroups || myGroups.length === 0 ? (
+                <div className="text-center py-8 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)] rounded-2xl">
+                  {t('groups.empty')}
                 </div>
-              ))
+              ) : (
+                myGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    onClick={() => handleSelectGroup(group.id)}
+                    className={`glass-input p-3 rounded-2xl cursor-pointer transition flex items-center justify-between ${
+                      selectedGroupId === group.id ? 'border-[var(--accent-glow)] bg-[var(--accent-glow)]/10' : 'hover:border-[var(--accent-glow)]/40'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                      <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{group.description || '—'}</p>
+                    </div>
+                    <ArrowRight size={14} className="text-[var(--text-muted)] shrink-0 ml-2" />
+                  </div>
+                ))
+              )
+            ) : (
+              !allGroups || allGroups.length === 0 ? (
+                <div className="text-center py-8 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)] rounded-2xl">
+                  {t('groups.empty')}
+                </div>
+              ) : (
+                allGroups.map((group) => {
+                  const isJoined = myGroupIds.has(group.id)
+                  return (
+                    <div
+                      key={group.id}
+                      onClick={() => isJoined && handleSelectGroup(group.id)}
+                      className={`glass-input p-3 rounded-2xl transition flex items-center justify-between gap-3 ${
+                        isJoined ? 'cursor-pointer hover:border-[var(--accent-glow)]/40' : ''
+                      } ${selectedGroupId === group.id ? 'border-[var(--accent-glow)] bg-[var(--accent-glow)]/10' : ''}`}
+                    >
+                      <div className="overflow-hidden flex-1">
+                        <h3 className="text-xs font-bold text-[var(--text-main)] truncate">{group.name}</h3>
+                        <p className="text-[11px] text-[var(--text-muted)] truncate mt-0.5">{group.description || '—'}</p>
+                      </div>
+
+                      {isJoined ? (
+                        <span className="text-[10px] font-semibold text-[#10B981] flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-lg bg-[#10B981]/10">
+                          <Check size={12} /> {t('groups.members')}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            joinGroup(group.id)
+                          }}
+                          className="px-2.5 py-1 bg-[var(--accent-glow)]/15 text-[var(--accent-glow)] hover:bg-[var(--accent-glow)] hover:text-white text-xs font-semibold rounded-xl transition shrink-0 cursor-pointer"
+                        >
+                          {t('groups.join')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })
+              )
             )}
           </div>
         </div>
       </div>
 
-      {/* ЦЕНТРАЛЬНАЯ КОЛОНКА: Участники и Комната (на смартфонах при mobileSection === 'room') */}
+      {/* ЦЕНТРАЛЬНАЯ КОЛОНКА: Комната участников ИЛИ Каталог всех команд */}
       <div className={`col-span-12 lg:col-span-4 flex flex-col gap-4 md:gap-6 h-full overflow-hidden ${
         mobileSection === 'list' ? 'hidden lg:flex' : 'flex'
       }`}>
         {selectedGroupId ? (
           <div className="glass-panel rounded-3xl p-4 md:p-5 shadow-xl flex-1 flex flex-col overflow-hidden">
             
-            {/* Кнопка "Назад к списку" для смартфонов */}
-            <div className="lg:hidden mb-2">
+            {/* Панель навигации назад для мобильных и десктопа */}
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--border-subtle)]">
               <button
-                onClick={() => setMobileSection('list')}
-                className="flex items-center gap-1.5 text-xs text-[var(--accent-glow)] font-semibold"
+                onClick={handleBackToAllGroups}
+                className="flex items-center gap-1.5 text-xs text-[var(--accent-glow)] font-semibold hover:opacity-80 transition cursor-pointer"
               >
                 <ArrowLeft size={14} />
-                <span>Все гильдии</span>
+                <span>{t('groups.allGroups')}</span>
               </button>
+
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-mono">
+                ID: {selectedGroupId.slice(0, 6)}...
+              </span>
             </div>
 
+            {/* Заголовок группы и стрик */}
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border-subtle)] shrink-0">
               <div className="overflow-hidden pr-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xs font-black text-[var(--text-main)] tracking-wider uppercase truncate">
-                    {selectedGroup?.name || 'Комната группы'}
+                    {selectedGroup?.name || t('groups.title')}
                   </h2>
                   <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
                     <Radio size={10} className="animate-pulse" /> {Math.max(1, Object.keys(onlineUsers || {}).length)}
@@ -230,7 +309,7 @@ export default function GroupsView() {
                 {isOwner && (
                   <button
                     onClick={() => deleteGroup(selectedGroupId)}
-                    title="Удалить группу"
+                    title={t('groups.delete')}
                     className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition cursor-pointer"
                   >
                     <Trash2 size={13} />
@@ -240,14 +319,15 @@ export default function GroupsView() {
                   onClick={() => leaveGroup(selectedGroupId)}
                   className="px-2.5 py-1 glass-input text-[var(--text-muted)] hover:text-[var(--text-main)] rounded-xl text-[11px] transition cursor-pointer"
                 >
-                  Выйти
+                  {t('groups.leave')}
                 </button>
               </div>
             </div>
 
+            {/* Список участников группы */}
             <div className="overflow-y-auto flex flex-col gap-2 pr-1 flex-1">
               {!currentMembers || currentMembers.length === 0 ? (
-                <div className="text-center py-8 text-[var(--text-muted)] text-xs">Загрузка участников...</div>
+                <div className="text-center py-8 text-[var(--text-muted)] text-xs">{t('common.loading')}</div>
               ) : (
                 currentMembers.map((m, idx) => {
                   const isMe = m?.user_id === user?.id
@@ -259,7 +339,7 @@ export default function GroupsView() {
                   const isUserBreak = isMe 
                     ? (isRunning && mode === 'break') 
                     : presence?.status === 'break'
-                  const memberUsername = m?.profiles?.username || (isMe ? 'Вы' : 'Участник')
+                  const memberUsername = m?.profiles?.username || (isMe ? 'Вы' : 'Студент')
 
                   return (
                     <div key={m?.id || idx} className="glass-input p-3 rounded-2xl flex items-center justify-between gap-2.5 text-xs">
@@ -290,11 +370,11 @@ export default function GroupsView() {
                           </div>
                           <div className="text-[10px] text-[var(--text-muted)] truncate">
                             {isUserFocus
-                              ? `🟢 ${isMe ? (tasks.find(t => t.id === selectedTaskId)?.title || 'Фокус 25м') : (presence?.taskTitle || 'Фокус')}`
+                              ? `🟢 ${isMe ? (tasks.find(t => t.id === selectedTaskId)?.title || `${t('pomodoro.work')} 25${t('pomodoro.minutes')}`) : (presence?.taskTitle || t('groups.inFocus'))}`
                               : isUserBreak
-                              ? '☕ Перерыв'
+                              ? `☕ ${t('groups.onBreak')}`
                               : isOnline
-                              ? '⚪ В сети'
+                              ? `⚪ ${t('groups.online')}`
                               : 'Офлайн'}
                           </div>
                         </div>
@@ -303,7 +383,7 @@ export default function GroupsView() {
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="flex items-center gap-1 font-mono text-[11px] text-[var(--text-muted)]">
                           <Award size={12} className="text-[#10B981]" />
-                          <span>Lvl {m?.profiles?.level || 1}</span>
+                          <span>{t('profile.level')} {m?.profiles?.level || 1}</span>
                         </div>
 
                         {isOwner && m?.user_id !== user?.id && (
@@ -312,7 +392,7 @@ export default function GroupsView() {
                             onChange={(e) => changeMemberRole(selectedGroupId, m.user_id, e.target.value)}
                             className="glass-input rounded-xl px-1.5 py-0.5 text-[10px] text-[var(--text-main)] outline-none cursor-pointer"
                           >
-                            <option value="member" className="bg-[var(--surface-card)] text-[var(--text-main)]">Участник</option>
+                            <option value="member" className="bg-[var(--surface-card)] text-[var(--text-main)]">{t('groups.members')}</option>
                             <option value="moderator" className="bg-[var(--surface-card)] text-[var(--text-main)]">Модератор</option>
                           </select>
                         )}
@@ -324,11 +404,18 @@ export default function GroupsView() {
             </div>
           </div>
         ) : (
+          /* Витрина доступных групп при отсутствии выбранной */
           <div className="glass-panel rounded-3xl p-5 shadow-xl flex-1 flex flex-col overflow-hidden">
-            <h2 className="text-xs font-bold text-[var(--text-muted)] tracking-wider uppercase mb-3">Все Команды</h2>
+            <div className="flex items-center gap-2 text-[var(--accent-glow)] mb-3">
+              <Globe size={16} />
+              <h2 className="text-xs font-bold text-[var(--text-muted)] tracking-wider uppercase">
+                {t('groups.allGroups')}
+              </h2>
+            </div>
+            
             <div className="overflow-y-auto flex flex-col gap-2 flex-1 pr-1">
               {!allGroups || allGroups.length === 0 ? (
-                <div className="text-center py-8 text-[var(--text-muted)] text-xs">Нет созданных команд</div>
+                <div className="text-center py-8 text-[var(--text-muted)] text-xs">{t('groups.empty')}</div>
               ) : (
                 allGroups.map((group) => {
                   const isJoined = myGroupIds.has(group.id)
@@ -336,18 +423,21 @@ export default function GroupsView() {
                     <div key={group.id} className="glass-input p-3.5 rounded-2xl flex items-center justify-between gap-3">
                       <div className="overflow-hidden">
                         <h3 className="text-xs font-bold text-[var(--text-main)]">{group.name}</h3>
-                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{group.description || 'Без описания'}</p>
+                        <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{group.description || '—'}</p>
                       </div>
                       {isJoined ? (
-                        <span className="text-[11px] font-semibold text-[#10B981] flex items-center gap-1 shrink-0 px-2.5 py-1 rounded-xl bg-[#10B981]/10">
-                          <Check size={13} /> Состоите
-                        </span>
+                        <button
+                          onClick={() => handleSelectGroup(group.id)}
+                          className="text-[11px] font-semibold text-[#10B981] flex items-center gap-1 shrink-0 px-2.5 py-1 rounded-xl bg-[#10B981]/10 cursor-pointer"
+                        >
+                          <Check size={13} /> {t('groups.members')}
+                        </button>
                       ) : (
                         <button
                           onClick={() => joinGroup(group.id)}
                           className="px-3 py-1 bg-[var(--accent-glow)]/15 text-[var(--accent-glow)] hover:bg-[var(--accent-glow)] hover:text-white text-xs font-semibold rounded-xl transition shrink-0 cursor-pointer"
                         >
-                          Вступить
+                          {t('groups.join')}
                         </button>
                       )}
                     </div>
@@ -359,7 +449,7 @@ export default function GroupsView() {
         )}
       </div>
 
-      {/* ПРАВАЯ КОЛОНКА: Realtime-Чат (на смартфонах при mobileSection === 'room') */}
+      {/* ПРАВАЯ КОЛОНКА: Realtime Чат группы */}
       <div className={`col-span-12 lg:col-span-4 flex flex-col h-full overflow-hidden ${
         mobileSection === 'list' ? 'hidden lg:flex' : 'flex'
       }`}>
@@ -368,7 +458,7 @@ export default function GroupsView() {
         ) : (
           <div className="glass-panel rounded-3xl p-6 shadow-xl h-full flex flex-col items-center justify-center text-center text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)]">
             <Users size={32} className="opacity-40 mb-3 text-[var(--accent-glow)]" />
-            <span>Выберите команду в списке слева, чтобы открыть комнату совместной учебы и чат</span>
+            <span>{t('groups.title')}</span>
           </div>
         )}
       </div>

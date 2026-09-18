@@ -1,11 +1,15 @@
+import React from 'react'
 import { LayoutDashboard, Target, Users, Inbox } from 'lucide-react'
+import { useLocaleStore } from '../store/useLocaleStore'
 
 export default function MobileTabBar({ currentView, setCurrentView }) {
+  const { t } = useLocaleStore()
+
   const tabs = [
-    { id: 'dashboard', label: 'Фокус', icon: Target },
-    { id: 'tasks', label: 'Задачи', icon: LayoutDashboard },
-    { id: 'inbox', label: 'Инбокс', icon: Inbox },
-    { id: 'groups', label: 'Группы', icon: Users },
+    { id: 'dashboard', label: t('nav.focus'), icon: Target },
+    { id: 'tasks', label: t('nav.tasks'), icon: LayoutDashboard },
+    { id: 'inbox', label: t('nav.inbox'), icon: Inbox },
+    { id: 'groups', label: t('nav.groups'), icon: Users },
   ]
 
   return (

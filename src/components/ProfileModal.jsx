@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useTaskStore } from '../store/useTaskStore'
+import { useLocaleStore } from '../store/useLocaleStore'
 import { 
   X, Award, Flame, Clock, CheckCircle2, Shield, User, Check
 } from 'lucide-react'
@@ -16,6 +17,7 @@ const AVATAR_PRESETS = [
 export default function ProfileModal({ isOpen, onClose }) {
   const { profile, updateProfile } = useAuthStore()
   const { tasks } = useTaskStore()
+  const { t } = useLocaleStore()
 
   const [username, setUsername] = useState('')
   const [fullName, setFullName] = useState('')
@@ -43,25 +45,25 @@ export default function ProfileModal({ isOpen, onClose }) {
   const achievements = [
     {
       title: 'Первый Фокус',
-      desc: 'Завершить 1 сессию Pomodoro',
+      desc: '1 Pomodoro сессиясын аяқтау',
       unlocked: totalFocusSeconds >= 1500,
       icon: '🎯'
     },
     {
       title: 'В Огне',
-      desc: 'Стрик активности 3+ дня',
+      desc: 'Стрик 3+ күнге созылды',
       unlocked: (profile?.streak_count || 0) >= 3,
       icon: '🔥'
     },
     {
       title: 'Марафонец',
-      desc: 'Достигнуть 3-го уровня',
+      desc: '3-деңгейге жету',
       unlocked: (profile?.level || 1) >= 3,
       icon: '⚡'
     },
     {
       title: 'Продуктивный Мастер',
-      desc: 'Закрыть 5 выполненных задач',
+      desc: '5 тапсырманы сәтті орындау',
       unlocked: completedTasksCount >= 5,
       icon: '🏆'
     },
@@ -79,14 +81,14 @@ export default function ProfileModal({ isOpen, onClose }) {
         avatar_url: avatarUrl,
       })
 
-      if (res.success) {
-        setMsg('Данные профиля сохранены!')
+      if (res?.success) {
+        setMsg(t('profile.savedSuccess'))
         setTimeout(() => setMsg(''), 2500)
       } else {
-        setMsg(res.error || 'Ошибка при сохранении')
+        setMsg(res?.error || 'Error')
       }
     } catch (err) {
-      setMsg('Не удалось сохранить данные')
+      setMsg('Error')
     } finally {
       setIsSaving(false)
     }
@@ -100,7 +102,9 @@ export default function ProfileModal({ isOpen, onClose }) {
         <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] shrink-0">
           <div className="flex items-center gap-2 text-[var(--accent-glow)]">
             <Shield size={20} />
-            <h2 className="text-sm font-black tracking-wider text-[var(--text-main)] uppercase">Паспорт Студента</h2>
+            <h2 className="text-sm font-black tracking-wider text-[var(--text-main)] uppercase">
+              {t('profile.title')}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -123,14 +127,14 @@ export default function ProfileModal({ isOpen, onClose }) {
                   {fullName || `@${username || 'Student'}`}
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-[var(--accent-glow)]/15 text-[var(--accent-glow)] border border-[var(--accent-glow)]/30">
-                  Lvl {profile?.level || 1}
+                  {t('profile.level')} {profile?.level || 1}
                 </span>
               </div>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">@{username || profile?.username}</p>
 
               <div className="mt-3">
                 <div className="flex justify-between text-[11px] font-mono text-[var(--text-muted)] mb-1">
-                  <span>Опыт до Lvl {(profile?.level || 1) + 1}</span>
+                  <span>XP: {(profile?.level || 1) + 1} {t('profile.level')}</span>
                   <span>{currentLvlXP} / 200 XP</span>
                 </div>
                 <div className="w-full h-2 bg-[var(--timer-track)] rounded-full overflow-hidden border border-[var(--border-subtle)]">
@@ -143,34 +147,35 @@ export default function ProfileModal({ isOpen, onClose }) {
             </div>
           </div>
 
+          {/* Статистика көрсеткіштері */}
           <div className="grid grid-cols-3 gap-3">
             <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
               <Clock size={18} className="text-[var(--accent-glow)] mb-1" />
-              <span className="text-lg font-black text-[var(--text-main)] font-mono">{totalFocusHours} ч</span>
-              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Время фокуса</span>
+              <span className="text-lg font-black text-[var(--text-main)] font-mono">{totalFocusHours} с</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">{t('profile.totalFocus')}</span>
             </div>
 
             <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
               <Flame size={18} className="text-orange-500 mb-1" />
-              <span className="text-lg font-black text-[var(--text-main)] font-mono">{profile?.streak_count || 0} дн</span>
-              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Серия стрика</span>
+              <span className="text-lg font-black text-[var(--text-main)] font-mono">{profile?.streak_count || 0}</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">{t('profile.streak')}</span>
             </div>
 
             <div className="glass-input p-3.5 rounded-2xl flex flex-col items-center justify-center text-center">
-              <CheckCircle2 size={18} className="text-[#10B981] mb-1" />
+              <CheckCircle2 size={18} className="text-[#10B981]" mb-1 />
               <span className="text-lg font-black text-[var(--text-main)] font-mono">{completedTasksCount}</span>
-              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">Закрыто задач</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase font-medium">{t('nav.tasks')}</span>
             </div>
           </div>
 
           <form onSubmit={handleSave} className="glass-panel p-5 rounded-2xl flex flex-col gap-4">
             <h4 className="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-1.5">
               <User size={14} className="text-[var(--accent-glow)]" />
-              <span>Личные данные</span>
+              <span>{t('profile.title')}</span>
             </h4>
 
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] block mb-2 font-medium">Выберите аватар:</label>
+              <label className="text-[11px] text-[var(--text-muted)] block mb-2 font-medium">{t('profile.avatar')}:</label>
               <div className="flex gap-2.5">
                 {AVATAR_PRESETS.map((url, idx) => (
                   <button
@@ -194,7 +199,7 @@ export default function ProfileModal({ isOpen, onClose }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">Никнейм</label>
+                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">{t('profile.username')}</label>
                 <input
                   type="text"
                   required
@@ -205,10 +210,10 @@ export default function ProfileModal({ isOpen, onClose }) {
               </div>
 
               <div>
-                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">Полное имя</label>
+                <label className="text-[11px] text-[var(--text-muted)] block mb-1 font-medium">Аты-жөні</label>
                 <input
                   type="text"
-                  placeholder="Имя Фамилия"
+                  placeholder="Аты-жөні"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full glass-input rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] outline-none"
@@ -227,14 +232,14 @@ export default function ProfileModal({ isOpen, onClose }) {
               disabled={isSaving}
               className="mt-1 py-2.5 bg-[var(--accent-glow)] hover:opacity-90 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-md"
             >
-              {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
+              {isSaving ? t('common.loading') : t('profile.save')}
             </button>
           </form>
 
           <div>
-            <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <h4 className="text-xs font-bold text-[var(--text-muted)] tracking-wider uppercase mb-3 flex items-center gap-1.5">
               <Award size={14} className="text-[#10B981]" />
-              <span>Достижения студента</span>
+              <span>Жетістіктер</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {achievements.map((item, idx) => (

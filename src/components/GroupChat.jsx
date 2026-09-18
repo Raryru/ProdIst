@@ -3,10 +3,13 @@ import { Send, Lock, MessageSquare } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
 import { useTimerStore } from '../store/useTimerStore'
+import { useLocaleStore } from '../store/useLocaleStore'
 
 export default function GroupChat({ groupId }) {
   const { user } = useAuthStore()
   const { isRunning, mode } = useTimerStore()
+  const { t } = useLocaleStore()
+
   const [messages, setMessages] = useState([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(true)
@@ -72,16 +75,15 @@ export default function GroupChat({ groupId }) {
 
   return (
     <div className="glass-panel rounded-2xl flex flex-col h-full border border-[var(--border-subtle)] overflow-hidden">
-      
       {/* Шапка чата */}
       <div className="p-3 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--input-bg)] shrink-0">
         <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-main)]">
           <MessageSquare size={14} className="text-[var(--accent-glow)]" />
-          <span>Командный чат</span>
+          <span>{t('groups.title')}</span>
         </div>
         {isFocusLocked && (
           <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 font-medium">
-            <Lock size={10} /> Фокус-режим: чат закрыт
+            <Lock size={10} /> {t('groups.chatLocked')}
           </span>
         )}
       </div>
@@ -89,9 +91,13 @@ export default function GroupChat({ groupId }) {
       {/* Список сообщений */}
       <div className="flex-1 p-3 overflow-y-auto space-y-3">
         {loading ? (
-          <div className="text-center text-xs text-[var(--text-muted)] mt-10">Загрузка сообщений...</div>
+          <div className="text-center text-xs text-[var(--text-muted)] mt-10">
+            {t('common.loading')}
+          </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-xs text-[var(--text-muted)] mt-10">Сообщений пока нет. Будьте первыми!</div>
+          <div className="text-center text-xs text-[var(--text-muted)] mt-10">
+            {t('groups.empty')}
+          </div>
         ) : (
           messages.map((m) => {
             const isMe = m.user_id === user?.id
@@ -105,7 +111,7 @@ export default function GroupChat({ groupId }) {
             return (
               <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <span className="text-[10px] text-[var(--text-muted)] mb-0.5 px-1 font-medium">
-                  {isMe ? 'Вы' : `@${m.profiles?.username || 'Участник'}`}
+                  {isMe ? (locale === 'kz' ? 'Сіз' : locale === 'en' ? 'You' : 'Вы') : `@${m.profiles?.username || 'Студент'}`}
                 </span>
                 <div
                   className={`px-3 py-1.5 rounded-xl text-xs max-w-[85%] break-words ${
@@ -128,7 +134,7 @@ export default function GroupChat({ groupId }) {
         <input
           type="text"
           disabled={isFocusLocked}
-          placeholder={isFocusLocked ? 'Чат заблокирован до окончания таймера...' : 'Сообщение в группу...'}
+          placeholder={isFocusLocked ? t('groups.chatLocked') : t('groups.chatPlaceholder')}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           className="flex-1 glass-input rounded-xl px-3 py-1.5 text-xs text-[var(--text-main)] placeholder:text-[var(--text-muted)] outline-none disabled:opacity-50"

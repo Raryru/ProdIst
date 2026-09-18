@@ -10,6 +10,7 @@ import { useTaskStore } from './store/useTaskStore'
 import { useGroupStore } from './store/useGroupStore'
 import { useTimerStore } from './store/useTimerStore'
 import { useThemeStore } from './store/useThemeStore'
+import { useLocaleStore } from './store/useLocaleStore'
 
 // Модули интерфейса и мобильная навигация
 import PomodoroTimer from './components/PomodoroTimer'
@@ -17,6 +18,7 @@ import GroupsView from './components/GroupsView'
 import InboxView from './components/InboxView'
 import ProfileModal from './components/ProfileModal'
 import MobileTabBar from './components/MobileTabBar'
+import { LanguageSelector } from './components/LanguageSelector'
 
 // Векторные иконки Lucide
 import { 
@@ -37,6 +39,7 @@ export default function App() {
   const { myGroups, fetchMyGroups } = useGroupStore()
   const { isRunning, mode, selectedTaskId } = useTimerStore()
   const { theme, initTheme, toggleTheme } = useThemeStore()
+  const { t, setLocale, locale } = useLocaleStore()
 
   // -----------------------------------------------------------------------
   // 2.2. Навигация и диалоговые окна
@@ -58,7 +61,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('all')
 
   // -----------------------------------------------------------------------
-  // 2.3. Синхронизация сессии и темы
+  // 2.3. Синхронизация сессии, темы и локали
   // -----------------------------------------------------------------------
   useEffect(() => {
     checkSession()
@@ -75,10 +78,13 @@ export default function App() {
       fetchTasks()
       fetchMyGroups()
       initTheme(profile)
+      if (profile?.language_preference) {
+        setLocale(profile.language_preference)
+      }
     } else {
       initTheme(null)
     }
-  }, [user, profile?.theme_preference])
+  }, [user, profile?.theme_preference, profile?.language_preference])
 
   // Realtime Presence: трансляция рабочего статуса в группы
   useEffect(() => {
@@ -130,13 +136,13 @@ export default function App() {
           options: { data: { username: username || email.split('@')[0] } }
         })
         if (error) throw error
-        alert('Регистрация прошла успешно!')
+        alert(locale === 'kz' ? 'Тіркелу сәтті аяқталды!' : locale === 'en' ? 'Registration successful!' : 'Регистрация прошла успешно!')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Ошибка входа')
+      setErrorMsg(err.message || (locale === 'kz' ? 'Кіру қатесі' : locale === 'en' ? 'Sign in error' : 'Ошибка входа'))
     } finally {
       setAuthLoading(false)
     }
@@ -157,7 +163,7 @@ export default function App() {
       <div className="bg-[var(--bg-base)] flex h-screen w-screen items-center justify-center text-[var(--accent-glow)] font-medium">
         <div className="flex items-center gap-3 glass-panel px-6 py-4 rounded-2xl">
           <div className="w-4 h-4 rounded-full bg-[var(--accent-glow)] animate-ping" />
-          <span className="text-sm tracking-wide text-[var(--text-main)]">Загрузка Prodoist 2.0...</span>
+          <span className="text-sm tracking-wide text-[var(--text-main)]">{t('common.loading')}</span>
         </div>
       </div>
     )
@@ -172,12 +178,19 @@ export default function App() {
         <div className="w-full max-w-md glass-panel rounded-3xl p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[var(--accent-glow)] to-[#10B981]" />
           
+          {/* Кнопка выбора языка на экране логина */}
+          <div className="flex justify-end mb-2">
+            <LanguageSelector />
+          </div>
+
           <div className="text-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-[var(--accent-glow)]/10 border border-[var(--accent-glow)]/30 flex items-center justify-center mx-auto mb-4 text-[var(--accent-glow)] shadow-lg">
               <Sparkles size={26} />
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-main)]">Prodoist</h1>
-            <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">Цифровой Хаб Продуктивности 2.0</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1.5 font-medium">
+              {locale === 'kz' ? 'Өнімділіктің цифрлық хабы 2.0' : locale === 'en' ? 'Digital Productivity Hub 2.0' : 'Цифровой Хаб Продуктивности 2.0'}
+            </p>
           </div>
 
           {errorMsg && (
@@ -189,7 +202,7 @@ export default function App() {
           <form onSubmit={handleAuth} className="flex flex-col gap-4">
             {isSignUp && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">Имя пользователя</label>
+                <label className="text-xs font-semibold text-[var(--text-muted)]">{t('profile.username')}</label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-3 text-[var(--text-muted)]" size={16} />
                   <input
@@ -205,7 +218,7 @@ export default function App() {
             )}
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[var(--text-muted)]">Email адрес</label>
+              <label className="text-xs font-semibold text-[var(--text-muted)]">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3 text-[var(--text-muted)]" size={16} />
                 <input
@@ -220,7 +233,9 @@ export default function App() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[var(--text-muted)]">Пароль</label>
+              <label className="text-xs font-semibold text-[var(--text-muted)]">
+                {locale === 'kz' ? 'Құпиясөз' : locale === 'en' ? 'Password' : 'Пароль'}
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-3 text-[var(--text-muted)]" size={16} />
                 <input
@@ -239,7 +254,13 @@ export default function App() {
               disabled={authLoading}
               className="w-full mt-2 bg-[var(--accent-glow)] hover:opacity-90 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg text-sm"
             >
-              <span>{authLoading ? 'Обработка...' : isSignUp ? 'Зарегистрироваться' : 'Войти в аккаунт'}</span>
+              <span>
+                {authLoading 
+                  ? t('common.loading') 
+                  : isSignUp 
+                  ? (locale === 'kz' ? 'Тіркелу' : locale === 'en' ? 'Sign Up' : 'Зарегистрироваться')
+                  : (locale === 'kz' ? 'Аккаунтқа кіру' : locale === 'en' ? 'Sign In' : 'Войти в аккаунт')}
+              </span>
               <ArrowRight size={16} />
             </button>
           </form>
@@ -249,7 +270,9 @@ export default function App() {
               onClick={() => setIsSignUp(!isSignUp)}
               className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-glow)] transition font-medium cursor-pointer"
             >
-              {isSignUp ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
+              {isSignUp 
+                ? (locale === 'kz' ? 'Аккаунтыңыз бар ма? Кіру' : locale === 'en' ? 'Already have an account? Sign In' : 'Уже есть аккаунт? Войти')
+                : (locale === 'kz' ? 'Аккаунтыңыз жоқ па? Тіркелу' : locale === 'en' ? "Don't have an account? Sign Up" : 'Нет аккаунта? Зарегистрироваться')}
             </button>
           </div>
         </div>
@@ -289,7 +312,7 @@ export default function App() {
               }`}
             >
               <LayoutDashboard size={15} />
-              <span>Фокус и Задачи</span>
+              <span>{t('nav.focus')} & {t('nav.tasks')}</span>
             </button>
 
             <button
@@ -299,7 +322,7 @@ export default function App() {
               }`}
             >
               <Users size={15} />
-              <span>Учебные Группы</span>
+              <span>{t('nav.groups')}</span>
             </button>
 
             <button
@@ -309,7 +332,7 @@ export default function App() {
               }`}
             >
               <Inbox size={15} />
-              <span>Инбокс</span>
+              <span>{t('nav.inbox')}</span>
             </button>
           </nav>
         </div>
@@ -317,14 +340,18 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3">
           <div className="hidden sm:flex glass-input items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold">
             <Award className="text-[#10B981]" size={16} />
-            <span>Lvl {profile?.level || 1}</span>
+            <span>{t('profile.level')} {profile?.level || 1}</span>
           </div>
 
           <div className="glass-input flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold">
             <Flame className="text-orange-500" size={16} />
-            <span>{profile?.streak_count || 0} дн.</span>
+            <span>{profile?.streak_count || 0} {t('profile.streak')}</span>
           </div>
 
+          {/* Переключатель языков RU / ҚАЗ / EN */}
+          <LanguageSelector />
+
+          {/* Переключатель темы */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
@@ -337,7 +364,7 @@ export default function App() {
             <button
               onClick={() => setIsProfileOpen(true)}
               className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl glass-panel hover:border-[var(--accent-glow)]/40 transition cursor-pointer"
-              title="Открыть Паспорт Студента"
+              title={t('profile.title')}
             >
               <img
                 src={profile?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
@@ -351,7 +378,7 @@ export default function App() {
 
             <button
               onClick={signOut}
-              title="Выйти"
+              title={t('profile.logout')}
               className="p-2 text-[var(--text-muted)] hover:text-red-400 glass-input rounded-xl transition cursor-pointer"
             >
               <LogOut size={16} />
@@ -377,7 +404,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-[var(--accent-glow)]">
                     <Target size={18} />
-                    <h2 className="text-xs font-bold text-[var(--text-main)] tracking-wider uppercase">Фокус Дня (Rule of 3)</h2>
+                    <h2 className="text-xs font-bold text-[var(--text-main)] tracking-wider uppercase">{t('nav.focus')} (Rule of 3)</h2>
                   </div>
                   <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-[var(--accent-glow)]/10 text-[var(--accent-glow)] font-mono border border-[var(--accent-glow)]/20">
                     {focusTasks.length} / 3
@@ -387,7 +414,7 @@ export default function App() {
                 <div className="flex flex-col gap-2.5">
                   {focusTasks.length === 0 ? (
                     <div className="border border-dashed border-[var(--border-subtle)] rounded-2xl p-5 text-center text-[var(--text-muted)] text-xs">
-                      Фокус дня пуст. Нажмите молнию у задачи.
+                      {t('todo.empty')}
                     </div>
                   ) : (
                     focusTasks.map((task) => (
@@ -425,7 +452,7 @@ export default function App() {
                 <div className="flex items-center justify-between mb-4 md:mb-5 shrink-0">
                   <div className="flex items-center gap-2 text-[var(--text-main)] font-bold text-xs uppercase tracking-wider">
                     <ListTodo size={18} className="text-[var(--accent-glow)]" />
-                    <span>Задачи</span>
+                    <span>{t('todo.title')}</span>
                   </div>
 
                   <div className="glass-input p-1 rounded-xl flex gap-1">
@@ -435,7 +462,7 @@ export default function App() {
                         activeTab === 'all' ? 'bg-[var(--accent-glow)] text-white' : 'text-[var(--text-muted)]'
                       }`}
                     >
-                      Все ({tasks.length})
+                      {t('todo.all')} ({tasks.length})
                     </button>
                     <button
                       onClick={() => setActiveTab('focus')}
@@ -443,7 +470,7 @@ export default function App() {
                         activeTab === 'focus' ? 'bg-[var(--accent-glow)] text-white' : 'text-[var(--text-muted)]'
                       }`}
                     >
-                      Фокус ({tasks.filter((t) => t.is_in_focus).length})
+                      {t('todo.focusOnly')} ({tasks.filter((t) => t.is_in_focus).length})
                     </button>
                   </div>
                 </div>
@@ -453,7 +480,7 @@ export default function App() {
                     type="text"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder="Новая задача..."
+                    placeholder={t('todo.placeholder')}
                     className="flex-1 glass-input rounded-2xl px-4 py-2.5 text-xs outline-none transition"
                   />
                   
@@ -462,9 +489,9 @@ export default function App() {
                     onChange={(e) => setNewTaskPriority(e.target.value)}
                     className="glass-input rounded-2xl px-2.5 py-2.5 text-xs outline-none cursor-pointer"
                   >
-                    <option value="low">Обычный</option>
-                    <option value="medium">⚡ Средний</option>
-                    <option value="high">🔥 Высокий</option>
+                    <option value="low">{t('todo.priorityLow')}</option>
+                    <option value="medium">⚡ {t('todo.priorityMedium')}</option>
+                    <option value="high">🔥 {t('todo.priorityHigh')}</option>
                   </select>
 
                   <button
@@ -478,7 +505,7 @@ export default function App() {
                 <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2.5">
                   {displayedTasks.length === 0 ? (
                     <div className="text-center py-16 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border-subtle)] rounded-2xl">
-                      {activeTab === 'focus' ? 'Нет задач в фокусе.' : 'Список задач пуст.'}
+                      {t('todo.empty')}
                     </div>
                   ) : (
                     displayedTasks.map((task) => (
@@ -502,7 +529,7 @@ export default function App() {
 
                           {(task.time_spent || 0) > 0 && (
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--accent-glow)]/10 text-[var(--accent-glow)] border border-[var(--accent-glow)]/20 shrink-0">
-                              {Math.max(1, Math.round((task.time_spent || 0) / 60))}м
+                              {Math.max(1, Math.round((task.time_spent || 0) / 60))} {t('pomodoro.minutes')}
                             </span>
                           )}
 
